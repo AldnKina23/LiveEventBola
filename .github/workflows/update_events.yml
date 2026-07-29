@@ -1,208 +1,51 @@
-import asyncio
-import re
-from pathlib import Path
-from typing import Dict, List, Optional
-from urllib.parse import urljoin, quote
-from playwright.async_api import BrowserContext, async_playwright
+name: Auto Update Live Events Playlist
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
-)
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
 
-STREAM_PATTERN = re.compile(r"\.m3u8($|\?)", re.IGNORECASE)
+permissions:
+  contents: write
 
-# Tentukan folder output dan file target al
-OUTPUT_DIR = Path("LiveEvents")
-OUTPUT_FILE = OUTPUT_DIR / "LiveSportsEvents.m3u8"
-TIVIMATE_OUTPUT_FILE = OUTPUT_DIR / "LiveSportsEvents_TiviMate.m3u8"
+jobs:
+  scrape-events:
+    runs-on: ubuntu-latest
 
-# Target Sites Configuration
-TARGET_SITES = [
-    {
-        "name": "Xoilac XTX",
-        "base_url": "https://xoilacxtx.tv/",
-        "group": "Xoilac XTX - Live",
-        "default_logo": "https://i.postimg.cc/B6WMnCRT/basketball-sport-logo-minimalist-style-600nw-2484656797.jpg",
-    },
-    {
-        "name": "Xoilac ZZG",
-        "base_url": "https://xoilaczzg.com/",
-        "group": "Xoilac ZZG - Live",
-        "default_logo": "https://i.postimg.cc/B6WMnCRT/basketball-sport-logo-minimalist-style-600nw-2484656797.jpg",
-    },
-    {
-        "name": "RestNinja",
-        "base_url": "https://restninja.io/",
-        "group": "RestNinja - Live Events",
-        "default_logo": "https://i.postimg.cc/CLDMZMZC/nfl-logo-png-seeklogo-520492.png",
-    },
-    {
-        "name": "Trackey",
-        "base_url": "https://www.trackey.io/",
-        "group": "Trackey - Live Events",
-        "default_logo": "https://i.postimg.cc/wBBdk9Bc/mlb-logo-png-seeklogo-250501.png",
-    },
-]
+    steps:
+      - name: 1. Checkout Repository
+        uses: actions/checkout@v4
 
-def write_playlist_tivimate(streams: List[Dict], filepath: Path):
-    if not streams:
-        print("❌ Tidak ada stream untuk TiviMate.")
-        return
-    filepath.parent.mkdir(parents=True, exist_ok=True)
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write("#EXTM3U\n")
-        for entry in streams:
-            f.write(
-                f'#EXTINF:-1 tvg-id="{entry["tvg_id"]}" tvg-name="{entry["name"]}" '
-                f'tvg-logo="{entry["tvg_logo"]}" group-title="{entry["group"]}",{entry["name"]}\n'
-            )
-            base_url = entry.get("ref", "")
-            pipe = f'|referer={base_url}|origin={base_url}|user-agent={quote(USER_AGENT, safe="")}'
-            f.write(entry["url"] + pipe + "\n")
-    print(f"✅ Playlist TiviMate tersimpan: {filepath}")
+      - name: 2. Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-def write_playlist(streams: List[Dict], filepath: Path):
-    if not streams:
-        print("❌ Tidak ada stream untuk playlist standar.")
-        return
-    filepath.parent.mkdir(parents=True, exist_ok=True)
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write("#EXTM3U\n")
-        for entry in streams:
-            f.write(
-                f'#EXTINF:-1 tvg-id="{entry["tvg_id"]}" tvg-name="{entry["name"]}" '
-                f'tvg-logo="{entry["tvg_logo"]}" group-title="{entry["group"]}",{entry["name"]}\n'
-            )
-            f.write(f'#EXTVLCOPT:http-origin={entry["ref"]}\n')
-            f.write(f'#EXTVLCOPT:http-referrer={entry["ref"]}\n')
-            f.write(f"#EXTVLCOPT:http-user-agent={USER_AGENT}\n")
-            f.write(entry["url"] + "\n")
-    print(f"✅ Playlist Standar tersimpan: {filepath}")
+      - name: 3. Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install aiohttp beautifulsoup4 lxml playwright
+          playwright install chromium --with-deps
 
-def clean_match_title(title: str) -> str:
-    cleaned = " ".join(title.splitlines()).strip()
-    return " ".join(cleaned.split())
+      - name: 4. Buat Folder Output
+        run: mkdir -p LiveEvents
 
-async def find_stream_fast(context: BrowserContext, page_url: str) -> Optional[str]:
-    page = await context.new_page()
-    captured_stream = None
+      - name: 5. Run Live Events Scraper
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python live_events_scraper.py
 
-    def handle_request(request):
-        nonlocal captured_stream
-        if not captured_stream and STREAM_PATTERN.search(request.url):
-            captured_stream = request.url
+      - name: 6. Auto Commit & Push M3U8 Terbaru
+        if: success()
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-    page.on("request", handle_request)
-
-    try:
-        print(f"   ↳ Membuka: {page_url}")
-        # Timeout dipercepat ke 12 detik
-        await page.goto(page_url, wait_until="domcontentloaded", timeout=12000)
-        
-        # Tunggu maksimal 5 detik untuk penangkapan stream M3U8
-        for _ in range(10):
-            if captured_stream:
-                print(f"   🎉 M3U8 Ditangkap: {captured_stream[:75]}...")
-                return captured_stream
-            await asyncio.sleep(0.5)
-
-    except Exception as e:
-        print(f"   ⚠️ Lewati/Timeout membuka {page_url}")
-    finally:
-        if not page.is_closed():
-            page.remove_listener("request", handle_request)
-            await page.close()
-
-    return captured_stream
-
-async def scrape_site_events(site_info: Dict) -> List[Dict]:
-    site_name = site_info["name"]
-    base_url = site_info["base_url"]
-    group_name = site_info["group"]
-    default_logo = site_info["default_logo"]
-
-    print(f"\n==========================================")
-    print(f"🌐 Scraping Fast: {site_name} ({base_url})")
-    print(f"==========================================")
-
-    results: List[Dict] = []
-    
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(user_agent=USER_AGENT)
-        
-        try:
-            page = await context.new_page()
-            await page.goto(base_url, wait_until="domcontentloaded", timeout=15000)
-            await page.wait_for_timeout(2000)
-
-            selectors = [
-                "a[href*='/truc-tiep/']",
-                "a[href*='/match/']",
-                "a[href*='/live/']",
-                "a[href*='/watch/']",
-                "div.match-item a",
-                "div.item-match a"
-            ]
-
-            found_elements = page.locator(", ".join(selectors))
-            count = await found_elements.count()
-
-            visited_hrefs = set()
-            match_links = []
-
-            for i in range(count):
-                elem = found_elements.nth(i)
-                href = await elem.get_attribute("href")
-                title = await elem.inner_text()
-
-                if href and title and len(title.strip()) > 3:
-                    full_url = urljoin(base_url, href)
-                    if full_url not in visited_hrefs and full_url != base_url:
-                        visited_hrefs.add(full_url)
-                        match_links.append({
-                            "title": clean_match_title(title),
-                            "url": full_url
-                        })
-
-            await page.close()
-            print(f"📌 Ditemukan {len(match_links)} pertandingan di {site_name}.")
-
-            # Hanya periksa maksimal 6 pertandingan teratas agar super cepat
-            for idx, match in enumerate(match_links[:6]):
-                print(f"[{idx+1}/{len(match_links[:6])}] {match['title']}")
-                stream_url = await find_stream_fast(context, match["url"])
-
-                if stream_url:
-                    results.append({
-                        "name": match["title"],
-                        "url": stream_url,
-                        "tvg_id": f"{site_name.replace(' ', '')}.Live.{idx+1}",
-                        "tvg_logo": default_logo,
-                        "group": group_name,
-                        "ref": base_url
-                    })
-
-        except Exception as e:
-            print(f"❌ Error pada {site_name}: {e}")
-        finally:
-            await browser.close()
-
-    return results
-
-async def main():
-    print("🚀 Memulai Scraper Live Events Cepat...")
-    tasks = [scrape_site_events(site) for site in TARGET_SITES]
-    site_results = await asyncio.gather(*tasks)
-
-    all_streams = [stream for result in site_results for stream in result]
-
-    print(f"\n==========================================")
-    print(f"📊 Total Stream Berhasil Didapat: {len(all_streams)}")
-    print(f"==========================================")
-
-    write_playlist(all_streams, OUTPUT_FILE)
-    write_playlist_tivimate(all_streams, TIVIMATE_OUTPUT_FILE)
-
-if __name__ == "__main__":
-    asyncio.run(main())
+          git add LiveEvents/* || true
+          if ! git diff --cached --quiet; then
+            git commit -m "⚡ Auto Update: Refresh Live Events M3U8 - $(date '+%d/%m/%Y %H:%M:%S')"
+            git push origin main
+            echo "✅ Push playlist Live Events berhasil!"
+          else
+            echo "ℹ️ Tidak ada perubahan pada playlist Live Events."
+          fi
