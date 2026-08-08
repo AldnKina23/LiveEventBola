@@ -1,7 +1,3 @@
 #EXTM3U
-#EXTINF:-1 tvg-id="Trackey.Live.1" tvg-name="BLV 7UP" tvg-logo="https://i.postimg.cc/wBBdk9Bc/mlb-logo-png-seeklogo-250501.png" group-title="Trackey - Live Events",BLV 7UP
-https://live05.meung.app/live/78905744.m3u8?_t=1786169201209|referer=https://www.trackey.io/|origin=https://www.trackey.io/|user-agent=Mozilla%2F5.0%20%28Windows%20NT%2010.0%3B%20Win64%3B%20x64%29%20AppleWebKit%2F537.36%20%28KHTML%2C%20like%20Gecko%29%20Chrome%2F142.0.0.0%20Safari%2F537.36
-#EXTINF:-1 tvg-id="Trackey.Live.2" tvg-name="BLV POCARI" tvg-logo="https://i.postimg.cc/wBBdk9Bc/mlb-logo-png-seeklogo-250501.png" group-title="Trackey - Live Events",BLV POCARI
-https://live05.meung.app/live/19919577.m3u8?_t=1786169205189|referer=https://www.trackey.io/|origin=https://www.trackey.io/|user-agent=Mozilla%2F5.0%20%28Windows%20NT%2010.0%3B%20Win64%3B%20x64%29%20AppleWebKit%2F537.36%20%28KHTML%2C%20like%20Gecko%29%20Chrome%2F142.0.0.0%20Safari%2F537.36
-#EXTINF:-1 tvg-id="Trackey.Live.3" tvg-name="XEM NGAY" tvg-logo="https://i.postimg.cc/wBBdk9Bc/mlb-logo-png-seeklogo-250501.png" group-title="Trackey - Live Events",XEM NGAY
-https://live05.meung.app/live/19919577.m3u8?_t=1786169208851|referer=https://www.trackey.io/|origin=https://www.trackey.io/|user-agent=Mozilla%2F5.0%20%28Windows%20NT%2010.0%3B%20Win64%3B%20x64%29%20AppleWebKit%2F537.36%20%28KHTML%2C%20like%20Gecko%29%20Chrome%2F142.0.0.0%20Safari%2F537.36
+#EXTINF:-1 tvg-id="Trackey.Live.1" tvg-name="BLV 247" tvg-logo="https://i.postimg.cc/wBBdk9Bc/mlb-logo-png-seeklogo-250501.png" group-title="Trackey - Live Events",BLV 247
+https://live05.meung.app/live/90865415.m3u8?_t=1786177372521|referer=https://www.trackey.io/|origin=https://www.trackey.io/|user-agent=Mozilla%2F5.0%20%28Windows%20NT%2010.0%3B%20Win64%3B%20x64%29%20AppleWebKit%2F537.36%20%28KHTML%2C%20like%20Gecko%29%20Chrome%2F142.0.0.0%20Safari%2F537.36
